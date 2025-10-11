@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const finalAmount = amount || 199.93
     const amountInCents = Math.round(finalAmount * 100)
 
-    const url = 'https://api.freepaybr.com/functions/v1/transactions'
+    const url = 'https://api.freepayv2.com/functions/v1/transactions'
     
     // FreePay usa Basic Auth com SECRET_KEY:x (usando credenciais rotativas)
     const auth = 'Basic ' + Buffer.from(credentials.secretKey + ':x').toString('base64')

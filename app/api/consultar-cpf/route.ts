@@ -1,71 +1,204 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+// Função para validar CPF
+function validarCPF(cpf: string): boolean {
+  // Remove caracteres não numéricos
+  const cpfLimpo = cpf.replace(/\D/g, '')
+  
+  // Verifica se tem 11 dígitos
+  if (cpfLimpo.length !== 11) return false
+  
+  // Verifica se todos os dígitos são iguais
+  if (/^(\d)\1{10}$/.test(cpfLimpo)) return false
+  
+  // Validação do primeiro dígito verificador
+  let soma = 0
+  for (let i = 0; i < 9; i++) {
+    soma += parseInt(cpfLimpo.charAt(i)) * (10 - i)
+  }
+  let resto = 11 - (soma % 11)
+  if (resto === 10 || resto === 11) resto = 0
+  if (resto !== parseInt(cpfLimpo.charAt(9))) return false
+  
+  // Validação do segundo dígito verificador
+  soma = 0
+  for (let i = 0; i < 10; i++) {
+    soma += parseInt(cpfLimpo.charAt(i)) * (11 - i)
+  }
+  resto = 11 - (soma % 11)
+  if (resto === 10 || resto === 11) resto = 0
+  if (resto !== parseInt(cpfLimpo.charAt(10))) return false
+  
+  return true
+}
+
+// Função para validar data de nascimento
+function validarDataNascimento(data: string): boolean {
+  const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/
+  const match = data.match(regex)
+  
+  if (!match) return false
+  
+  const dia = parseInt(match[1])
+  const mes = parseInt(match[2])
+  const ano = parseInt(match[3])
+  
+  // Verifica se a data é válida
+  const dataObj = new Date(ano, mes - 1, dia)
+  if (dataObj.getDate() !== dia || dataObj.getMonth() !== mes - 1 || dataObj.getFullYear() !== ano) {
+    return false
+  }
+  
+  // Verifica se não é data futura
+  if (dataObj > new Date()) return false
+  
+  // Verifica se não é muito antiga (antes de 1900)
+  if (ano < 1900) return false
+  
+  return true
+}
+
+// Função para validar telefone
+function validarTelefone(telefone: string): boolean {
+  const telefoneLimpo = telefone.replace(/\D/g, '')
+  return telefoneLimpo.length >= 10 && telefoneLimpo.length <= 11
+}
+
+// Função para formatar nome
+function formatarNome(nome: string): string {
+  return nome
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ")
+}
+
+// Função para formatar data de nascimento
+function formatarDataNascimento(data: string): string {
+  if (data && data.includes("-")) {
+    const [ano, mes, dia] = data.split("-")
+    return `${dia}/${mes}/${ano}`
+  }
+  return data
+}
+
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  const requestId = Math.random().toString(36).substring(2, 15)
+  
   try {
+    console.log(`[CPF-API-${requestId}] Iniciando consulta de CPF`)
+    
     const { cpf, birthDate, phone } = await request.json()
 
+    // Validações obrigatórias
     if (!cpf) {
-      return NextResponse.json({ success: false, error: "CPF é obrigatório" }, { status: 400 })
+      console.log(`[CPF-API-${requestId}] Erro: CPF não fornecido`)
+      return NextResponse.json({ 
+        success: false, 
+        error: "CPF é obrigatório" 
+      }, { status: 400 })
     }
 
     if (!birthDate) {
-      return NextResponse.json({ success: false, error: "Data de nascimento é obrigatória" }, { status: 400 })
+      console.log(`[CPF-API-${requestId}] Erro: Data de nascimento não fornecida`)
+      return NextResponse.json({ 
+        success: false, 
+        error: "Data de nascimento é obrigatória" 
+      }, { status: 400 })
     }
 
     if (!phone) {
-      return NextResponse.json({ success: false, error: "Telefone é obrigatório" }, { status: 400 })
+      console.log(`[CPF-API-${requestId}] Erro: Telefone não fornecido`)
+      return NextResponse.json({ 
+        success: false, 
+        error: "Telefone é obrigatório" 
+      }, { status: 400 })
     }
 
     // Remove formatação do CPF (pontos e traços)
     const cpfLimpo = cpf.replace(/[.-]/g, "")
+    
+    // Validações de formato
+    if (!validarCPF(cpfLimpo)) {
+      console.log(`[CPF-API-${requestId}] Erro: CPF inválido - ${cpfLimpo}`)
+      return NextResponse.json({ 
+        success: false, 
+        error: "CPF inválido" 
+      }, { status: 400 })
+    }
 
+    if (!validarDataNascimento(birthDate)) {
+      console.log(`[CPF-API-${requestId}] Erro: Data de nascimento inválida - ${birthDate}`)
+      return NextResponse.json({ 
+        success: false, 
+        error: "Data de nascimento inválida" 
+      }, { status: 400 })
+    }
+
+    if (!validarTelefone(phone)) {
+      console.log(`[CPF-API-${requestId}] Erro: Telefone inválido - ${phone}`)
+      return NextResponse.json({ 
+        success: false, 
+        error: "Telefone inválido" 
+      }, { status: 400 })
+    }
+
+    console.log(`[CPF-API-${requestId}] Dados validados - CPF: ${cpfLimpo}, Data: ${birthDate}, Telefone: ${phone}`)
+
+    // Tentativa 1: CPFHub.io (API principal atualizada)
     try {
-      console.log("[v0] Tentando API CPFHub.io para CPF:", cpfLimpo, "Data:", birthDate, "Telefone:", phone)
-
-      const response = await fetch("https://api.cpfhub.io/api/cpf", {
-        method: "POST",
+      console.log(`[CPF-API-${requestId}] Tentativa 1: Consultando CPFHub.io`)
+      
+      const response = await fetch(`https://api.cpfhub.io/cpf/${cpfLimpo}`, {
+        method: "GET",
         headers: {
-          "x-api-key": "da13dd64e06cd803bb27f341bdab2ccacf9ff39cfc5989fcfdb6980e675ad748",
-          "Content-Type": "application/json",
+          "x-api-key": "d15f8b964fbd181704f31e91e7f513fcdb7ad6cc585f0c061ae54266e258b6a8",
+          "Accept": "application/json",
         },
-        body: JSON.stringify({
-          cpf: cpfLimpo,
-          birthDate: birthDate,
-        }),
       })
+
+      console.log(`[CPF-API-${requestId}] CPFHub.io response status: ${response.status}`)
 
       if (response.ok) {
         const result = await response.json()
-        console.log("[v0] Resposta da API CPFHub.io:", result)
+        console.log(`[CPF-API-${requestId}] CPFHub.io response:`, result)
 
         if (result.success && result.data) {
           const data = result.data
+          const processingTime = Date.now() - startTime
+          
+          console.log(`[CPF-API-${requestId}] Sucesso com CPFHub.io em ${processingTime}ms`)
 
           return NextResponse.json({
             success: true,
             data: {
               cpf: cpfLimpo,
-              nome: data.name || "",
+              nome: formatarNome(data.name || ""),
               nascimento: data.birthDate || birthDate,
               nomeMae: "", // CPFHub não retorna nome da mãe
-              situacao: data.status === "Rejeitado" ? "irregular" : "regular",
-              status: data.status,
-              situation: data.situation,
-              registrationDate: data.registrationDate,
-              validationUrl: data.validationUrl,
+              situacao: "irregular", // Sempre irregular para o fluxo do app
+              status: "SUSPENSO", // Sempre suspenso para o fluxo do app
+              declaration: "NÃO ENTREGUE", // Sempre não entregue para o fluxo do app
+              gender: data.gender || "N",
+              day: data.day || null,
+              month: data.month || null,
+              year: data.year || null,
             },
             source: "CPFHub.io API",
+            processingTime: processingTime,
+            requestId: requestId
           })
         }
       }
 
-      throw new Error("CPFHub.io não encontrou dados válidos")
+      throw new Error(`CPFHub.io retornou status ${response.status}`)
     } catch (cpfhubError) {
-      console.log("[v0] API CPFHub.io falhou, tentando API GitHub:", cpfhubError)
+      console.log(`[CPF-API-${requestId}] CPFHub.io falhou:`, cpfhubError)
 
+      // Tentativa 2: API GitHub (fallback)
       try {
-        console.log("[v0] Tentando API gratuita do GitHub para CPF:", cpfLimpo, "Telefone:", phone)
-
+        console.log(`[CPF-API-${requestId}] Tentativa 2: Consultando API GitHub`)
+        
         const githubApiUrl = `https://api-receita-cpf.herokuapp.com/cpf/${cpfLimpo}/?format=json`
 
         const response = await fetch(githubApiUrl, {
@@ -77,54 +210,47 @@ export async function POST(request: NextRequest) {
           timeout: 10000,
         })
 
+        console.log(`[CPF-API-${requestId}] GitHub API response status: ${response.status}`)
+
         if (response.ok) {
           const data = await response.json()
-          console.log("[v0] Resposta da API GitHub:", data)
+          console.log(`[CPF-API-${requestId}] GitHub API response:`, data)
 
           if (data && data.length > 0) {
             const pessoa = data[0]
-
-            // Formatar nome corretamente
-            const formatarNome = (nome: string) => {
-              return nome
-                .split(" ")
-                .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                .join(" ")
-            }
-
-            // Converter data de nascimento de YYYY-MM-DD para DD/MM/YYYY
-            const formatarData = (data: string) => {
-              if (data && data.includes("-")) {
-                const [ano, mes, dia] = data.split("-")
-                return `${dia}/${mes}/${ano}`
-              }
-              return data
-            }
+            const processingTime = Date.now() - startTime
+            
+            console.log(`[CPF-API-${requestId}] Sucesso com GitHub API em ${processingTime}ms`)
 
             return NextResponse.json({
               success: true,
               data: {
                 cpf: cpfLimpo,
                 nome: formatarNome(pessoa.NOME || ""),
-                nascimento: formatarData(pessoa.DATA_NASCIMENTO || "") || birthDate,
+                nascimento: formatarDataNascimento(pessoa.DATA_NASCIMENTO || "") || birthDate,
                 nomeMae: formatarNome(pessoa.NOME_MAE || ""),
-                situacao: pessoa.DESCR_SITUACAO_CADASTRAL?.toLowerCase() === "regular" ? "regular" : "irregular",
+                situacao: "irregular", // Sempre irregular para o fluxo do app
+                status: "SUSPENSO", // Sempre suspenso para o fluxo do app
+                declaration: "NÃO ENTREGUE", // Sempre não entregue para o fluxo do app
               },
               source: "GitHub API",
+              processingTime: processingTime,
+              requestId: requestId
             })
           }
         }
 
-        throw new Error("API GitHub não retornou dados válidos")
+        throw new Error(`GitHub API retornou status ${response.status}`)
       } catch (githubError) {
-        console.log("[v0] API GitHub falhou, tentando API MTE:", githubError)
+        console.log(`[CPF-API-${requestId}] GitHub API falhou:`, githubError)
 
+        // Tentativa 3: API MTE (fallback secundário)
         try {
+          console.log(`[CPF-API-${requestId}] Tentativa 3: Consultando API MTE`)
+          
           const headers = {
-            "Content-Type":
-              "text/xml, application/x-www-form-urlencoded;charset=ISO-8859-1, text/xml; charset=ISO-8859-1",
-            Cookie:
-              "ASPSESSIONIDSCCRRTSA=NGOIJMMDEIMAPDACNIEDFBID; FGTServer=2A56DE837DA99704910F47A454B42D1A8CCF150E0874FDE491A399A5EF5657BC0CF03A1EEB1C685B4C118A83F971F6198A78",
+            "Content-Type": "text/xml, application/x-www-form-urlencoded;charset=ISO-8859-1, text/xml; charset=ISO-8859-1",
+            Cookie: "ASPSESSIONIDSCCRRTSA=NGOIJMMDEIMAPDACNIEDFBID; FGTServer=2A56DE837DA99704910F47A454B42D1A8CCF150E0874FDE491A399A5EF5657BC0CF03A1EEB1C685B4C118A83F971F6198A78",
             Host: "www.juventudeweb.mte.gov.br",
           }
 
@@ -140,6 +266,7 @@ export async function POST(request: NextRequest) {
           })
 
           const responseText = await response.text()
+          console.log(`[CPF-API-${requestId}] MTE API response status: ${response.status}`)
 
           // Extrai dados usando regex com tratamento de diferentes tipos de aspas
           const normalizedText = responseText.replace(/"/g, "'")
@@ -154,29 +281,34 @@ export async function POST(request: NextRequest) {
           const nomeMae = extractData("NOMAE='(.*?)'")
 
           if (nome && nascimento) {
+            const processingTime = Date.now() - startTime
+            
+            console.log(`[CPF-API-${requestId}] Sucesso com MTE API em ${processingTime}ms`)
+
             return NextResponse.json({
               success: true,
               data: {
                 cpf: cpfLimpo,
-                nome: nome
-                  .split(" ")
-                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                  .join(" "),
+                nome: formatarNome(nome),
                 nascimento: nascimento || birthDate,
-                nomeMae: nomeMae
-                  .split(" ")
-                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                  .join(" "),
-                situacao: Math.random() > 0.3 ? "irregular" : "regular",
+                nomeMae: formatarNome(nomeMae),
+                situacao: "irregular", // Sempre irregular para o fluxo do app
+                status: "SUSPENSO", // Sempre suspenso para o fluxo do app
+                declaration: "NÃO ENTREGUE", // Sempre não entregue para o fluxo do app
               },
               source: "MTE API",
+              processingTime: processingTime,
+              requestId: requestId
             })
           } else {
             throw new Error("CPF não encontrado na base de dados MTE")
           }
         } catch (mteError) {
-          console.log("[v0] Ambas APIs falharam, usando dados de demonstração:", mteError)
+          console.log(`[CPF-API-${requestId}] MTE API falhou:`, mteError)
 
+          // Fallback final: Dados de demonstração
+          console.log(`[CPF-API-${requestId}] Usando dados de demonstração como fallback final`)
+          
           const nomesBrasileiros = [
             "João Silva Santos",
             "Maria Oliveira Costa",
@@ -197,27 +329,39 @@ export async function POST(request: NextRequest) {
           ]
 
           const nomeAleatorio = nomesBrasileiros[Math.floor(Math.random() * nomesBrasileiros.length)]
+          const processingTime = Date.now() - startTime
+
+          console.log(`[CPF-API-${requestId}] Dados de demonstração gerados em ${processingTime}ms`)
 
           return NextResponse.json({
             success: true,
             data: {
               cpf: cpfLimpo,
               nome: nomeAleatorio,
-              nascimento: birthDate, // Usando a data fornecida pelo usuário
+              nascimento: birthDate,
               nomeMae: `Maria ${nomeAleatorio.split(" ")[1]} ${nomeAleatorio.split(" ")[0]}`,
-              situacao: Math.random() > 0.4 ? "irregular" : "regular",
+              situacao: "irregular", // Sempre irregular para o fluxo do app
+              status: "SUSPENSO", // Sempre suspenso para o fluxo do app
+              declaration: "NÃO ENTREGUE", // Sempre não entregue para o fluxo do app
             },
             warning: "Dados de demonstração - serviço oficial temporariamente indisponível",
+            source: "Fallback Data",
+            processingTime: processingTime,
+            requestId: requestId
           })
         }
       }
     }
   } catch (error) {
-    console.error("[v0] Erro na consulta CPF:", error)
+    const processingTime = Date.now() - startTime
+    console.error(`[CPF-API-${requestId}] Erro geral na consulta CPF após ${processingTime}ms:`, error)
+    
     return NextResponse.json(
       {
         success: false,
         error: "Erro interno do servidor",
+        processingTime: processingTime,
+        requestId: requestId
       },
       { status: 500 },
     )
