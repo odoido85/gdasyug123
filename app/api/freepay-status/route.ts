@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     console.log("[FreePay] Checking transaction status:", transactionId)
 
-    const url = `https://api.freepaybr.com/functions/v1/transactions/${transactionId}`
+    const url = `https://api.freepayv2.com/functions/v1/transactions/${transactionId}`
     
     // Tentar primeiro com credenciais primárias, depois secundárias se falhar
     let credentials = getPrimaryCredentials()
