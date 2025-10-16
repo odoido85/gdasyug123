@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
       const response = await fetch(`https://api.cpfhub.io/cpf/${cpfLimpo}`, {
         method: "GET",
         headers: {
-          "x-api-key": "d15f8b964fbd181704f31e91e7f513fcdb7ad6cc585f0c061ae54266e258b6a8",
+          "x-api-key": "7e4185861321176a6acc8e04ffa6e2fe5ab0d92b47be2bc7b1fe22b16b83de15",
           "Accept": "application/json",
         },
       })
